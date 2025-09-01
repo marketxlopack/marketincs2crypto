@@ -1,12 +1,193 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta charset="utf-8" />
-    <link rel="stylesheet" href="globals.css" />
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <div class="box"><div class="rectangle"></div></div>
-  </body>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Авторизация — HLOPETZ</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <!-- Шрифт с кириллицей, близкий к «крипто/минимал» -->
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    /* ========= БЫСТРЫЕ НАСТРОЙКИ ========= */
+    :root{
+      /* размеры твоего фрейма в Figma (подгони под свои!) */
+      --frame-w: 360px;   /* ширина карты */
+      --frame-px: 28px;   /* внутренние отступы */
+      --corner: 24px;     /* скругление */
+      --gap: 16px;        /* базовый вертикальный интервал */
+
+      /* цвета (приближены к твоему скрину — подгони из Figma/Code) */
+      --bg1: #E7E9EC;     /* верх градиента карты */
+      --bg2: #D0D3D8;     /* низ градиента карты */
+      --text: #0F1115;    /* заголовок/текст */
+      --text-sub: #2a2f36;/* сабтекст */
+      --accent: #0088cc;  /* Telegram кнопка */
+      --accent-h: #0077b6;/* hover */
+
+      --shadow: 0 8px 24px rgba(0,0,0,.18);
+      --ring: 0 1px 0 rgba(255,255,255,.35) inset, 0 0 0 1px rgba(0,0,0,.05) inset;
+    }
+
+    /* ========= БАЗА ========= */
+    * { box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: "Manrope", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #e0e0e0;
+      color: var(--text);
+    }
+    .page {
+      min-height: 100%;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+
+    /* ========= КАРТА ========= */
+    .card {
+      width: min(100%, var(--frame-w));
+      border-radius: var(--corner);
+      padding: var(--frame-px);
+      background: linear-gradient(180deg, var(--bg1), var(--bg2));
+      box-shadow: var(--shadow);
+      position: relative;
+      isolation: isolate;
+    }
+    /* лёгкий стеклянный эффект */
+    .card::before{
+      content:"";
+      position: absolute; inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,0));
+      pointer-events: none;
+      mix-blend-mode: overlay;
+    }
+
+    /* ========= КОНТЕНТ ========= */
+    .title {
+      margin: 0 0 calc(var(--gap) * .75) 0;
+      font-weight: 800;
+      font-size: 26px;              /* подгони из Figma */
+      letter-spacing: .2px;         /* подгони при необходимости */
+      text-shadow: 0 1px 3px rgba(0,0,0,.15);
+      color: #ffffff;               /* у тебя заголовок белый — оставил так */
+    }
+    .subtitle {
+      margin: 0 0 calc(var(--gap) * 1.25) 0;
+      font-size: 17px;              /* подгони */
+      font-weight: 600;
+      color: #ffffff;
+      opacity: .95;
+    }
+
+    .tg-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      height: 54px;                 /* подгони */
+      border-radius: 12px;
+      border: 0;
+      font-weight: 800;
+      font-size: 18px;
+      letter-spacing: .3px;
+      text-transform: uppercase;
+      background: var(--accent);
+      color: #fff;
+      box-shadow: var(--ring), 0 8px 20px rgba(0,136,204,.35);
+      cursor: pointer;
+      transition: transform .12s ease, box-shadow .2s ease, background .2s ease, filter .2s ease;
+      will-change: transform, filter;
+    }
+    .tg-btn:hover { background: var(--accent-h); filter: saturate(1.08); }
+    .tg-btn:active { transform: translateY(1px) scale(.99); }
+
+    .hint {
+      margin: calc(var(--gap) * .75) 0 0 0;
+      font-size: 12px;
+      line-height: 1.4;
+      color: #ffffff;
+      opacity: .9;
+      text-align: center;
+    }
+
+    .character {
+      display: block;
+      margin: 18px auto 0;          /* подгони отступ сверху */
+      width: 110px;                 /* подгони размер персонажа */
+      max-width: 60%;
+      height: auto;
+      filter: drop-shadow(0 6px 18px rgba(0,0,0,.22));
+      user-select: none;
+      pointer-events: none;
+    }
+
+    /* ========= РЕЖИМ «НАЛОЖЕНИЕ РЕФЕРЕНСА» ДЛЯ ПИКСЕЛЬ-ПЕРФЕКТ =========
+       Открой страницу как index.html?debug=1 — и получишь полупрозрачный
+       слой поверх, чтобы выровнять всё по пикселям 1-в-1.
+       Положи в /images/ref.png экспорт твоего фрейма из Figma (без рамок). */
+    body.debug .overlay-ref{
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: center/contain no-repeat url("images/ref.png");
+      opacity: .35; /* регулируй прозрачность */
+      z-index: 9999;
+    }
+
+    /* Телеграм-тема (если открыто в WebApp) — мягко подхватываем цвета */
+    @media (prefers-color-scheme: dark) {
+      body { background: #0f1115; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <main class="card">
+      <h1 class="title">Авторизация</h1>
+      <p class="subtitle">Войти с помощью</p>
+
+      <button class="tg-btn" id="tg-login">
+        <!-- можно вставить SVG-иконку Telegram слева, если есть в дизайне -->
+        TELEGRAM
+      </button>
+
+      <img class="character" src="images/mychar.png" alt="Персонаж">
+      <p class="hint">«Безопасная авторизация через Telegram»</p>
+    </main>
+  </div>
+
+  <!-- Слой для режима выравнивания -->
+  <div class="overlay-ref" hidden></div>
+
+  <script>
+    // Включаем режим наложения рефа, если ?debug=1
+    (function(){
+      const params = new URLSearchParams(location.search);
+      if (params.get('debug') === '1') {
+        document.body.classList.add('debug');
+        document.querySelector('.overlay-ref').hidden = false;
+      }
+    })();
+
+    // Telegram WebApp API
+    const tg = window.Telegram?.WebApp;
+    if (tg) tg.expand();
+
+    document.getElementById('tg-login').addEventListener('click', () => {
+      const user = tg?.initDataUnsafe?.user;
+      if (user) {
+        alert(`Привет, ${user.first_name}!`);
+        // здесь можешь закрыть webapp и передать данные в бота
+        // tg.close();
+      } else {
+        alert('Не удалось получить данные пользователя. Открой через Telegram WebApp.');
+      }
+    });
+  </script>
+</body>
 </html>
